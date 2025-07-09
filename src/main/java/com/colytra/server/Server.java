@@ -41,6 +41,9 @@ public class Server {
                                 points.forEach(e -> parsed.add(new java.awt.Point(e.getX(), e.getY())));
                                 oos.writeObject(parsed);
                                 oos.flush();
+                                points = null;
+                                m1 = null;
+                                m2 = null;
                             }
 
                         } catch (ClassNotFoundException e) {
