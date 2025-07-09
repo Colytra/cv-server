@@ -1,8 +1,17 @@
 package com.colytra.server;
 
+import com.colytra.cvhelper.core.Point;
+import com.colytra.cvhelper.core.color.ColorDifference;
+import com.colytra.cvhelper.core.matrix.Matrix;
+import com.colytra.cvhelper.image.ImageMatrix;
+import com.colytra.cvhelper.search.Searcher;
+
 import java.io.*;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
 public class Server {
     public static void main(String[] args) {
@@ -13,25 +22,31 @@ public class Server {
 
             while (true) {
                 try (Socket clientSocket = serverSocket.accept();
-                     BufferedReader in = new BufferedReader(
-                             new InputStreamReader(clientSocket.getInputStream()));
-                     PrintWriter out = new PrintWriter(
-                             clientSocket.getOutputStream(), true)) {
+                     ObjectInputStream ois = new ObjectInputStream(clientSocket.getInputStream());
+                     ObjectOutputStream oos = new ObjectOutputStream(clientSocket.getOutputStream())) {
 
                     System.out.println("Подключился клиент: " +
                             clientSocket.getInetAddress().getHostAddress());
 
-                    // Читаем сообщение от клиента
-                    String inputLine;
-                    while ((inputLine = in.readLine()) != null) {
-                        System.out.println("Получено от клиента: " + inputLine);
+                    while (true) {
+                        try {
+                            List<int[][]> matrices = (List<int[][]>) ois.readObject();
+                            if (matrices.size() > 1) {
+                                Matrix m1 = new Matrix();
+                                m1.convert(matrices.get(0));
+                                Matrix m2 = new Matrix();
+                                m2.convert(matrices.get(1));
+                                List<Point> points = Searcher.findAll(m1,m2, new ColorDifference(60), 45, 3);
+                                List<java.awt.Point> parsed = new ArrayList<>();
+                                points.forEach(e -> parsed.add(new java.awt.Point(e.getX(), e.getY())));
+                                oos.writeObject(parsed);
+                                oos.flush();
+                            }
 
-                        // Отправляем ответ клиенту
-                        String response = "Сервер получил: " + inputLine;
-                        out.println(response);
-
-                        // Если клиент прислал "exit" - закрываем соединение
-                        if (inputLine.equalsIgnoreCase("exit")) {
+                        } catch (ClassNotFoundException e) {
+                            System.err.println("Неизвестный класс объекта: " + e.getMessage());
+                        } catch (EOFException e) {
+                            System.out.println("Клиент отключился");
                             break;
                         }
                     }
